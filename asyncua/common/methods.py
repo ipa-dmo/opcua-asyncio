@@ -39,6 +39,10 @@ async def call_method_full(parent: asyncua.Node, methodid: Union[ua.NodeId, ua.Q
     returns a CallMethodResult object with converted OutputArguments
     : param: parent `Node`
     """
+
+    print("Parent: ", parent)
+    print("Children: ", await parent.get_children())
+    print("Child: ", await parent.get_child(methodid))
     if isinstance(methodid, (str, ua.uatypes.QualifiedName)):
         methodid = (await parent.get_child(methodid)).nodeid
     elif hasattr(methodid, 'nodeid'):
@@ -64,8 +68,12 @@ async def _call_method(session, parentnodeid, methodid, arguments):
     request.MethodId = methodid
     request.InputArguments = arguments
     methodstocall = [request]
+    print(request)
     results = await session.call(methodstocall)
+    print(results)
     res = results[0]
+    print(res)
+    print(res.StatusCode)
     res.StatusCode.check()
     return res
 

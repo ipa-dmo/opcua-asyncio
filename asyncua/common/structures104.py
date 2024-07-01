@@ -214,6 +214,16 @@ class {struct_name}{base_class}:
         elif sfield.DataType == data_type:
             uatype = struct_name
         else:
+            print("Data Type unknown: ", sfield.DataType)
+            print("Debugging Extension Obj")
+            for element in ua.extension_objects_by_datatype:
+                print(element, " in ", ua.extension_objects_by_datatype[element])
+            print("Debugging Enums")
+            for element in ua.enums_by_datatype:
+                print(element, " in ", ua.enums_by_datatype[element])
+            print("Debugging basetype")
+            for element in ua.basetype_by_datatype:
+                print(element, " in ", ua.basetype_by_datatype[element])
             if log_error:
                 _logger.error("Unknown datatype for field: %s in structure:%s, please report", sfield, struct_name)
             raise RuntimeError(f"Unknown datatype for field: {sfield} in structure:{struct_name}, please report")
@@ -342,10 +352,19 @@ class DataTypeSorter:
 
 async def _recursive_parse(server, base_node, dtypes, parent_sdef=None, add_existing=False):
     ch = await base_node.get_children_descriptions(refs=ua.ObjectIds.HasSubtype)
-
+    #print("Test ch: ", ch)
+    #print("------Desc----")
+    #for desc in ch:
+    #    print(desc)
     requests = [_read_data_type_definition(server, desc, read_existing=add_existing) for desc in ch]
+    #print("------Req----")
+    #for req in requests:
+    #    print(req)
+    #print("------Res----")
     results = await asyncio.gather(*requests)
-
+    #for res in results:
+    #    print(res)
+    
     def __add_recursion(sdef, desc):
         name = clean_name(desc.BrowseName.Name)
         if sdef:
@@ -467,11 +486,21 @@ async def load_data_type_definitions(server: Union["Server", "Client"], base_nod
     new_objects = await _load_base_datatypes(server)  # we need to load all basedatatypes alias first
     new_objects.update(await load_enums(server))  # we need all enums to generate structure code
     new_objects.update(await load_enums(server, server.nodes.option_set_type, True))  # also load all optionsets
+    print(base_node)
     if base_node is None:
         base_node = server.nodes.base_structure_type
+        print("Base node was None: ")
+        print(base_node)
     dtypes = []
+    print("_____________________LOAD DATA TYPE DEFINITIONS_____________________")
     await _recursive_parse(server, base_node, dtypes, add_existing=overwrite_existing)
+    print("--------Unsorted--------")
+    for dtype in dtypes:
+        print(dtype)
     dtypes.sort()
+    print("--------Sorted----------")
+    for dtype in dtypes:
+        print(dtype)
     retries = 10
     for cnt in range(retries):
         # Retry to resolve datatypes
@@ -501,12 +530,14 @@ async def load_data_type_definitions(server: Union["Server", "Client"], base_nod
 
 
 async def _read_data_type_definition(server, desc: ua.ReferenceDescription, read_existing: bool = False):
+    print(desc.BrowseName.Name)
     if desc.BrowseName.Name == "FilterOperand":
         # FIXME: find out why that one is not in ua namespace...
         return None
     # FIXME: this is fishy, we may have same name in different Namespaces
     if not read_existing and hasattr(ua, desc.BrowseName.Name):
         return None
+    print("Start trying")
     _logger.info("Registering data type %s %s", desc.NodeId, desc.BrowseName)
     node = server.get_node(desc.NodeId)
     try:
@@ -556,24 +587,34 @@ class {name}({enum_type}):
 
 async def load_enums(server: Union["Server", "Client"], base_node: Node = None, option_set: bool = False) -> Dict:
     typename = "OptionSet" if option_set else "Enum"
+    print("__________LOAD_ENUMS___________")
     if base_node is None:
         base_node = server.nodes.enum_data_type
+    print(base_node)
     new_enums = {}
+    print("---Desc---")
     for desc in await base_node.get_children_descriptions(refs=ua.ObjectIds.HasSubtype):
         name = clean_name(desc.BrowseName.Name)
-        if hasattr(ua, name):
-            continue
-        _logger.info("Registering %s %s %s", typename, desc.NodeId, name)
+        print(name, "Already exists? ", hasattr(ua, name))
+        #if hasattr(ua, name):
+        #    continue
+        print("Registering %s %s %s", typename, desc.NodeId, name)
         try:
-            edef = await _read_data_type_definition(server, desc)
+            edef = await _read_data_type_definition(server, desc, read_existing=True)
             if not edef:
+                print("Tried unsuccessfull")
                 continue
+            print("Tried successfull")
             env = await _generate_object(name, edef, enum=True, option_set=option_set, log_fail=False)
         except Exception:
+            print("%s %s (NodeId: %s): Failed to generate class from UA datatype", typename, name, desc.NodeId)
             _logger.exception("%s %s (NodeId: %s): Failed to generate class from UA datatype", typename, name, desc.NodeId)
             continue
         ua.register_enum(name, desc.NodeId, env[name])
         new_enums[name] = env[name]
+    print("Size new enums: ", len(new_enums))
+    for enum in new_enums:
+        print(enum)
     return new_enums
 
 
@@ -588,3 +629,4 @@ async def load_enum_xml_import(node_id: ua.NodeId, attrs: ua.DataTypeAttributes,
     env = await _generate_object(name, attrs.DataTypeDefinition, enum=True, option_set=option_set)   # type: ignore[attr-defined]
     ua.register_enum(name, node_id, env[name])
     return env[name]
+

@@ -877,6 +877,9 @@ class Node:
         return await create_reference_type(self, nodeid, bname, symmetric, inversename)
 
     async def call_method(self, methodid: Union[ua.NodeId, ua.QualifiedName, str], *args) -> Any:
+        print("in call method 1")
+        print(methodid)
+        print(args)
         return await call_method(self, methodid, *args)
 
     async def register(self) -> None:
