@@ -352,7 +352,7 @@ class DataTypeSorter:
 
 async def _recursive_parse(server, base_node, dtypes, parent_sdef=None, add_existing=False):
     ch = await base_node.get_children_descriptions(refs=ua.ObjectIds.HasSubtype)
-    #print("Test ch: ", ch)
+    print("Test ch: ", ch)
     #print("------Desc----")
     #for desc in ch:
     #    print(desc)
@@ -371,6 +371,7 @@ async def _recursive_parse(server, base_node, dtypes, parent_sdef=None, add_exis
             if parent_sdef:
                 for sfield in reversed(parent_sdef.Fields):
                     sdef.Fields.insert(0, sfield)
+            print("Appending type: ", name, desc)
             dtypes.append(DataTypeSorter(desc.NodeId, name, desc, sdef))
             return _recursive_parse(server, server.get_node(desc.NodeId), dtypes, parent_sdef=sdef, add_existing=add_existing,)
         else:
@@ -478,7 +479,7 @@ async def _load_base_datatypes(server: Union["Server", "Client"]) -> Any:
     return new_alias
 
 
-async def load_data_type_definitions(server: Union["Server", "Client"], base_node: Node = None, overwrite_existing=False) -> Dict:
+async def load_data_type_definitions(server: Union["Server", "Client"], base_node: Node = None, overwrite_existing=True) -> Dict:
     """
     Read DataTypeDefinition attribute on all Structure and Enumeration defined
     on server and generate Python objects in ua namespace to be used to talk with server
@@ -493,6 +494,8 @@ async def load_data_type_definitions(server: Union["Server", "Client"], base_nod
         print(base_node)
     dtypes = []
     print("_____________________LOAD DATA TYPE DEFINITIONS_____________________")
+    print("Base node: ", base_node)
+    print("Server: ", server)
     await _recursive_parse(server, base_node, dtypes, add_existing=overwrite_existing)
     print("--------Unsorted--------")
     for dtype in dtypes:
@@ -509,8 +512,12 @@ async def load_data_type_definitions(server: Union["Server", "Client"], base_nod
         for dts in dtypes:
             try:
                 env = await _generate_object(dts.name, dts.sdef, data_type=dts.data_type, log_fail=log_ex)
+                print("---------Try Register---------------")
+                print(dts.name)
+                print(dts.data_type)
                 ua.register_extension_object(dts.name, dts.encoding_id, env[dts.name], dts.data_type)
                 new_objects[dts.name] = env[dts.name]  # type: ignore
+                print("---------Registered---------------")
             except NotImplementedError:
                 _logger.exception("Structure type %s not implemented", dts.sdef)
             except AttributeError:
@@ -523,6 +530,7 @@ async def load_data_type_definitions(server: Union["Server", "Client"], base_nod
                 failed_types.append(dts)
                 if log_ex:
                     raise
+            print("---------Registered---------------", dts.sdef)
         if not failed_types:
             break
         dtypes = failed_types
@@ -534,6 +542,10 @@ async def _read_data_type_definition(server, desc: ua.ReferenceDescription, read
     if desc.BrowseName.Name == "FilterOperand":
         # FIXME: find out why that one is not in ua namespace...
         return None
+        
+    if desc.BrowseName.Name == "OrderConfType":
+        print("----------OrderConfType is here -----------------")
+        print("Has attribute: ", hasattr(ua, desc.BrowseName.Name))
     # FIXME: this is fishy, we may have same name in different Namespaces
     if not read_existing and hasattr(ua, desc.BrowseName.Name):
         return None
