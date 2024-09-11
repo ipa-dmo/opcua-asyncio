@@ -74,7 +74,7 @@ async def _call_method(session, parentnodeid, methodid, arguments):
     res = results[0]
     print(res)
     print(res.StatusCode)
-    res.StatusCode.check()
+    #res.StatusCode.check()
     return res
 
 
