@@ -352,7 +352,7 @@ class DataTypeSorter:
 
 async def _recursive_parse(server, base_node, dtypes, parent_sdef=None, add_existing=False):
     ch = await base_node.get_children_descriptions(refs=ua.ObjectIds.HasSubtype)
-    print("Test ch: ", ch)
+    # print("Test ch: ", ch)
     #print("------Desc----")
     #for desc in ch:
     #    print(desc)
@@ -537,14 +537,14 @@ async def load_data_type_definitions(server: Union["Server", "Client"], base_nod
 
 
 async def _read_data_type_definition(server, desc: ua.ReferenceDescription, read_existing: bool = False):
-    print(desc.BrowseName.Name)
+    #print(desc.BrowseName.Name)
     if desc.BrowseName.Name == "FilterOperand":
         # FIXME: find out why that one is not in ua namespace...
         return None
     # FIXME: this is fishy, we may have same name in different Namespaces
     if not read_existing and hasattr(ua, desc.BrowseName.Name):
         return None
-    print("Start trying")
+    #print("Start trying")
     _logger.info("Registering data type %s %s", desc.NodeId, desc.BrowseName)
     node = server.get_node(desc.NodeId)
     try:
@@ -602,16 +602,16 @@ async def load_enums(server: Union["Server", "Client"], base_node: Node = None, 
     print("---Desc---")
     for desc in await base_node.get_children_descriptions(refs=ua.ObjectIds.HasSubtype):
         name = clean_name(desc.BrowseName.Name)
-        print(name, "Already exists? ", hasattr(ua, name))
+        #print(name, "Already exists? ", hasattr(ua, name))
         #if hasattr(ua, name):
         #    continue
-        print("Registering %s %s %s", typename, desc.NodeId, name)
+        #print("Registering %s %s %s", typename, desc.NodeId, name)
         try:
             edef = await _read_data_type_definition(server, desc, read_existing=True)
             if not edef:
-                print("Tried unsuccessfull")
+                #print("Tried unsuccessfull")
                 continue
-            print("Tried successfull")
+            #print("Tried successfull")
             env = await _generate_object(name, edef, enum=True, option_set=option_set, log_fail=False)
         except Exception:
             print("%s %s (NodeId: %s): Failed to generate class from UA datatype", typename, name, desc.NodeId)
